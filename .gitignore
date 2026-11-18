@@ -31,6 +31,7 @@ data/raw/*
 
 # Temporary and downloaded data
 data/processed/*.parquet
+data/audio_cache/
 
 # Generated model artifacts - keep the main recommender
 artifacts/*.joblib

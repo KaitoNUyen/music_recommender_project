@@ -1,9 +1,11 @@
+"""Data preprocessing and validation utilities for the Embeat Recommender."""
 
+from typing import List, Tuple
 import pandas as pd
 from sklearn.preprocessing import StandardScaler
 
 
-AUDIO_FEATURES = [
+AUDIO_FEATURES: List[str] = [
     "danceability",
     "energy",
     "valence",
@@ -12,130 +14,63 @@ AUDIO_FEATURES = [
     "instrumentalness",
     "speechiness",
     "liveness",
-    "loudness"
+    "loudness",
 ]
 
-CORE_AUDIO_FEATURES = AUDIO_FEATURES
-
-
-def clean_tracks(df):
-    """
-    Clean music metadata and audio features.
-    """
-
-    df = df.copy()
-
-    # Remove duplicate tracks
-    df = df.drop_duplicates(
-        subset="track_id"
-    )
-
-    # Convert audio features to numeric
-    for col in AUDIO_FEATURES:
-        df[col] = pd.to_numeric(
-            df[col],
-            errors="coerce"
-        )
-
-    # Remove missing audio features
-    df = df.dropna(
-        subset=AUDIO_FEATURES
-    )
-
-    # Remove invalid tempo
-    df = df[df["tempo"] > 0]
-
-    return df.reset_index(drop=True)
-
-
-def fit_scaler(df):
-    """
-    Fit StandardScaler on audio features.
-    """
-
-    scaler = StandardScaler()
-
-    scaled_features = scaler.fit_transform(
-        df[AUDIO_FEATURES]
-    )
-
-    return scaler, scaled_features
-
-
-def transform_features(df, scaler):
-    """
-    Transform audio features using fitted scaler.
-    """
-
-    return scaler.transform(
-        df[AUDIO_FEATURES]
-    )
+CORE_AUDIO_FEATURES: List[str] = AUDIO_FEATURES
 
 
 def validate_and_clean_batch(
-    df,
-    deduplicate=True,
-    min_popularity=0,
-):
+    df: pd.DataFrame,
+    deduplicate: bool = True,
+    min_popularity: int = 0,
+) -> pd.DataFrame:
     """
-    Validate and clean one incoming Embeat data batch.
+    Validate and clean a track DataFrame or incoming batch.
 
-    Keeps the original metadata columns while cleaning
-    the audio features required by the recommender.
+    Keeps original metadata columns while ensuring all required
+    AUDIO_FEATURES are numeric, finite, and have valid positive tempo.
     """
+    if not isinstance(df, pd.DataFrame):
+        raise TypeError("df must be a pandas DataFrame.")
 
-    df = df.copy()
-
-    # 1. Remove duplicated tracks within this batch
-    if deduplicate and "track_id" in df.columns:
-        df = df.drop_duplicates(
-            subset="track_id"
-        )
-
-    # 2. Validate required audio columns
-    missing_features = [
-        col for col in AUDIO_FEATURES
-        if col not in df.columns
-    ]
-
+    missing_features = [col for col in AUDIO_FEATURES if col not in df.columns]
     if missing_features:
-        raise ValueError(
-            f"Missing audio features: {missing_features}"
-        )
+        raise ValueError(f"Missing audio features: {missing_features}")
 
-    # 3. Convert audio features to numeric
+    cleaned = df.copy()
+
+    if deduplicate and "track_id" in cleaned.columns:
+        cleaned = cleaned.drop_duplicates(subset="track_id")
+
     for col in AUDIO_FEATURES:
-        df[col] = pd.to_numeric(
-            df[col],
-            errors="coerce"
-        )
+        cleaned[col] = pd.to_numeric(cleaned[col], errors="coerce")
 
-    # 4. Remove rows with invalid audio features
-    df = df.dropna(
-        subset=AUDIO_FEATURES
-    )
+    cleaned = cleaned.dropna(subset=AUDIO_FEATURES)
+    cleaned = cleaned[cleaned["tempo"] > 0]
 
-    # 5. Remove invalid tempo
-    df = df[df["tempo"] > 0]
-
-    # 6. Apply minimum popularity filter
     if min_popularity > 0:
-        if "popularity" not in df.columns:
-            raise ValueError(
-                "Missing required column: popularity"
-            )
+        if "popularity" not in cleaned.columns:
+            raise ValueError("Missing required column: popularity")
+        cleaned["popularity"] = pd.to_numeric(cleaned["popularity"], errors="coerce")
+        cleaned = cleaned.dropna(subset=["popularity"])
+        cleaned = cleaned[cleaned["popularity"] >= min_popularity]
 
-        df["popularity"] = pd.to_numeric(
-            df["popularity"],
-            errors="coerce"
-        )
+    return cleaned.reset_index(drop=True)
 
-        df = df.dropna(
-            subset=["popularity"]
-        )
 
-        df = df[
-            df["popularity"] >= min_popularity
-        ]
+def clean_tracks(df: pd.DataFrame) -> pd.DataFrame:
+    """Clean music metadata and audio features (delegates to unified cleaner)."""
+    return validate_and_clean_batch(df, deduplicate=True, min_popularity=0)
 
-    return df.reset_index(drop=True)
+
+def fit_scaler(df: pd.DataFrame) -> Tuple[StandardScaler, pd.DataFrame]:
+    """Fit StandardScaler on audio features and return (scaler, scaled_matrix)."""
+    scaler = StandardScaler()
+    scaled_features = scaler.fit_transform(df[AUDIO_FEATURES])
+    return scaler, scaled_features
+
+
+def transform_features(df: pd.DataFrame, scaler: StandardScaler):
+    """Transform audio features using a fitted StandardScaler."""
+    return scaler.transform(df[AUDIO_FEATURES])

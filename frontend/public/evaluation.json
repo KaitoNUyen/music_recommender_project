@@ -1,0 +1,217 @@
+{
+  "metadata": {
+    "title": "Music Recommendation System - Model Evaluation Benchmark",
+    "milestone": "Day 13 - Reproducible Dashboard Evaluation Export",
+    "generated_at": "2026-11-02T17:09:09.435588",
+    "author": "TV1 - Data & Machine Learning",
+    "reproducibility": {
+      "script": "ml/export_dashboard_artifacts.py",
+      "evaluation_script": "ml/evaluate.py",
+      "analysis_script": "ml/analyze_edge_cases.py",
+      "random_state": 42,
+      "command": "python ml/export_dashboard_artifacts.py"
+    }
+  },
+  "protocol": {
+    "name": "Per-User Temporal Split (80/20)",
+    "documentation": "docs/evaluation_protocol.md",
+    "split_ratio": {
+      "train": 0.8,
+      "test": 0.2
+    },
+    "temporal_ordering_column": "last_timestamp",
+    "zero_leakage_guarantee": true,
+    "filter_already_listened": true,
+    "min_interactions_per_user": 5,
+    "top_k": 10,
+    "candidate_pool": "Catalog (Top 10k tracks) excluding user train history"
+  },
+  "dataset_statistics": {
+    "name": "Last.fm-1K (fufu0105/lastfm-1k)",
+    "total_users": 794,
+    "evaluated_test_users": 792,
+    "total_tracks": 818202,
+    "catalog_tracks": 10000,
+    "total_interactions": 3022038,
+    "train_interactions": 2417313,
+    "test_interactions": 604721,
+    "avg_test_positives_per_user": 763.54
+  },
+  "models": [
+    {
+      "id": "popular",
+      "name": "Popularity Baseline",
+      "category": "Baseline",
+      "algorithm": "PopularityRecommender",
+      "hyperparameters": {
+        "metric": "user_count",
+        "fallback_strategy": "global_top_popular"
+      },
+      "metrics": {
+        "precision@10": 0.1221,
+        "recall@10": 0.0021,
+        "ndcg@10": 0.1256,
+        "hit_rate@10": 0.4495
+      },
+      "benchmarks": {
+        "train_duration_sec": 5.72,
+        "eval_duration_sec": 0.02,
+        "latency_per_request_ms": 0.025,
+        "model_size_mb": 116.43
+      },
+      "status": "ready"
+    },
+    {
+      "id": "mf",
+      "name": "Matrix Factorization (iALS)",
+      "category": "Latent Factor Model",
+      "algorithm": "Implicit ALS",
+      "hyperparameters": {
+        "factors": 64,
+        "regularization": 0.05,
+        "iterations": 15,
+        "alpha": 40.0,
+        "catalog_size": 10000,
+        "random_state": 42
+      },
+      "metrics": {
+        "precision@10": 0.1672,
+        "recall@10": 0.0036,
+        "ndcg@10": 0.1675,
+        "hit_rate@10": 0.6477
+      },
+      "benchmarks": {
+        "train_duration_sec": 3.34,
+        "eval_duration_sec": 0.36,
+        "latency_per_request_ms": 0.45,
+        "model_size_mb": 37.25
+      },
+      "status": "ready"
+    },
+    {
+      "id": "cf",
+      "name": "Item-based Collaborative Filtering",
+      "category": "Neighborhood Model",
+      "algorithm": "ItemBasedCFRecommender",
+      "hyperparameters": {
+        "k_neighbors": 100,
+        "catalog_size": 10000,
+        "similarity_metric": "cosine",
+        "implicit_weighting": "log1p"
+      },
+      "metrics": {
+        "precision@10": 0.2917,
+        "recall@10": 0.0059,
+        "ndcg@10": 0.3019,
+        "hit_rate@10": 0.6881
+      },
+      "benchmarks": {
+        "train_duration_sec": 5.6,
+        "eval_duration_sec": 1.09,
+        "latency_per_request_ms": 1.37,
+        "model_size_mb": 39.84
+      },
+      "status": "ready"
+    }
+  ],
+  "user_cohort_analysis": {
+    "description": "Hiệu năng Precision@10 phân tầng theo mức độ tương tác người dùng trong tập train",
+    "cohorts": [
+      {
+        "tier": "Low Interaction",
+        "criteria": "<= 923 tương tác (25% thấp nhất)",
+        "num_users": 198,
+        "precision@10": {
+          "Popularity": 0.0283,
+          "Matrix Factorization": 0.0818,
+          "Item-based CF": 0.1177
+        },
+        "hit_rate@10": {
+          "Popularity": 0.1717,
+          "Matrix Factorization": 0.3586,
+          "Item-based CF": 0.3687
+        }
+      },
+      {
+        "tier": "Medium Interaction",
+        "criteria": "923 - 3,932 tương tác (50% trung vị)",
+        "num_users": 396,
+        "precision@10": {
+          "Popularity": 0.0737,
+          "Matrix Factorization": 0.1699,
+          "Item-based CF": 0.3179
+        },
+        "hit_rate@10": {
+          "Popularity": 0.4167,
+          "Matrix Factorization": 0.6894,
+          "Item-based CF": 0.7626
+        }
+      },
+      {
+        "tier": "High Interaction",
+        "criteria": "> 3,932 tương tác (25% nghe nhiều nhất)",
+        "num_users": 198,
+        "precision@10": {
+          "Popularity": 0.1192,
+          "Matrix Factorization": 0.247,
+          "Item-based CF": 0.4131
+        },
+        "hit_rate@10": {
+          "Popularity": 0.5,
+          "Matrix Factorization": 0.8535,
+          "Item-based CF": 0.8586
+        }
+      }
+    ]
+  },
+  "hyperparameter_tuning_highlights": [
+    {
+      "model": "Item-based CF",
+      "parameter": "k_neighbors",
+      "configurations": [
+        {
+          "value": 50,
+          "precision@10": 0.3203,
+          "ndcg@10": 0.3355,
+          "note": "Tối ưu nhất (+9.8% precision, RAM 3.85MB)"
+        },
+        {
+          "value": 100,
+          "precision@10": 0.2917,
+          "ndcg@10": 0.3019,
+          "note": "Cấu hình baseline"
+        },
+        {
+          "value": 200,
+          "precision@10": 0.2568,
+          "ndcg@10": 0.2653,
+          "note": "Giảm sút do nhiễu láng giềng xa"
+        }
+      ]
+    },
+    {
+      "model": "Matrix Factorization",
+      "parameter": "alpha (Confidence Weighting)",
+      "configurations": [
+        {
+          "value": 20.0,
+          "precision@10": 0.2001,
+          "ndcg@10": 0.2089,
+          "note": "Tối ưu nhất (+19.7% precision)"
+        },
+        {
+          "value": 40.0,
+          "precision@10": 0.1672,
+          "ndcg@10": 0.1675,
+          "note": "Cấu hình baseline"
+        },
+        {
+          "value": 80.0,
+          "precision@10": 0.1427,
+          "ndcg@10": 0.1441,
+          "note": "Quá tập trung bài nghe lặp"
+        }
+      ]
+    }
+  ]
+}

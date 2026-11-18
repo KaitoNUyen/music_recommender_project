@@ -1,0 +1,4 @@
+model_id,model_name,category,precision@10,recall@10,ndcg@10,hit_rate@10,train_duration_sec,eval_duration_sec,latency_ms,evaluated_users,random_state
+popular,Popularity Baseline,Baseline,0.1221,0.0021,0.1256,0.4495,5.72,0.02,0.025,792,42
+mf,Matrix Factorization (iALS),Latent Factor Model,0.1672,0.0036,0.1675,0.6477,3.34,0.36,0.45,792,42
+cf,Item-based Collaborative Filtering,Neighborhood Model,0.2917,0.0059,0.3019,0.6881,5.6,1.09,1.37,792,42
